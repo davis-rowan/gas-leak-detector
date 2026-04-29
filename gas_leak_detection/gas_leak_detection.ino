@@ -525,10 +525,13 @@ GasLevel classifyReading(int raw) {
 //  MOTOR STOP
 // ============================================================
 void motorStop() {
-  // Active brake: hold both IN pins HIGH, then kill ENA.
-  // Works even if ENA has a hardware jumper (IN1=IN2=HIGH brakes regardless).
+  // Hard brake: IN1=HIGH IN2=HIGH short-circuits motor terminals.
+  // Keep ENA HIGH so the brake is active, hold for 1 second to kill momentum.
   digitalWrite(PIN_MOTOR_IN1, HIGH);
   digitalWrite(PIN_MOTOR_IN2, HIGH);
+  digitalWrite(PIN_MOTOR_ENA, HIGH);
+  delay(1000);
+  // Now fully cut power
   digitalWrite(PIN_MOTOR_ENA, LOW);
   digitalWrite(PIN_MOTOR_IN1, LOW);
   digitalWrite(PIN_MOTOR_IN2, LOW);

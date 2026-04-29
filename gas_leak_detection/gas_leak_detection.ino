@@ -82,7 +82,7 @@
 
 // ── Cloud relay (fill in after deploying relay-server/) ──────
 // Leave empty ("") to disable relay and use local WebServer only
-#define RELAY_SERVER_URL    "https://extensions-durable-open-perspectives.trycloudflare.com"
+#define RELAY_SERVER_URL    "https://gas-leak-detector-1znc.onrender.com"
 
 // ============================================================
 //  PINS

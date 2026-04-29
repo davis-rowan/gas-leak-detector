@@ -107,10 +107,12 @@
 #define THRESHOLD_DANGER    3276   // ≈ 800 PPM
 
 // ============================================================
-//  MOTOR
+//  MOTOR  — 100 RPM motor, 10 revolutions per valve move
+//  10 rev ÷ 100 RPM × 60 000 ms = 6 000 ms
 // ============================================================
-#define MOTOR_RUN_TIME      2000
-#define MOTOR_SPEED          200
+#define MOTOR_REVOLUTIONS   10
+#define MOTOR_RPM           100
+#define MOTOR_RUN_TIME      ((MOTOR_REVOLUTIONS * 60000UL) / MOTOR_RPM)   // 6000 ms
 
 // ============================================================
 //  TIMING
@@ -540,21 +542,21 @@ void motorStop() {
 
 // ============================================================
 //  START VALVE MOVE  (non-blocking — motor finishes in loop())
-//  Forward (IN1=H, IN2=L) → CLOSE
-//  Reverse (IN1=L, IN2=H) → OPEN
-//  Swap OUT1/OUT2 wires if direction is wrong.
+//  OPEN  → anti-clockwise : IN1=LOW,  IN2=HIGH
+//  CLOSE → clockwise      : IN1=HIGH, IN2=LOW
+//  If directions are reversed, swap the OUT1/OUT2 wires on L298N.
 // ============================================================
 void startValveMove(bool shouldOpen) {
   if (motorRunning && motorTargetOpen == shouldOpen) return;
   if (!motorRunning && valveOpen == shouldOpen) return;
 
-  digitalWrite(PIN_MOTOR_ENA, HIGH);   // Full speed — no PWM needed for a valve
+  digitalWrite(PIN_MOTOR_ENA, HIGH);
   if (shouldOpen) {
-    Serial.println(F(">>> VALVE: Starting OPEN move."));
+    Serial.println(F(">>> VALVE: OPEN — anti-clockwise, 10 rev."));
     digitalWrite(PIN_MOTOR_IN1, LOW);
     digitalWrite(PIN_MOTOR_IN2, HIGH);
   } else {
-    Serial.println(F(">>> VALVE: Starting CLOSE move."));
+    Serial.println(F(">>> VALVE: CLOSE — clockwise, 10 rev."));
     digitalWrite(PIN_MOTOR_IN1, HIGH);
     digitalWrite(PIN_MOTOR_IN2, LOW);
   }

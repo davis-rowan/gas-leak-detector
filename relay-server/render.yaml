@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: gasguard-relay
+    runtime: node
+    rootDir: relay-server
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production

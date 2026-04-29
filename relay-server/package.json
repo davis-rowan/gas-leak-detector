@@ -1,16 +1,16 @@
 {
   "name": "gasguard-relay",
   "version": "1.0.0",
-  "description": "Cloud relay between ESP32 and GitHub Pages dashboard",
+  "description": "Cloud relay for ESP32 Gas Detector",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
-  "engines": {
-    "node": ">=18"
-  },
   "dependencies": {
-    "cors": "^2.8.5",
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "engines": {
+    "node": ">=14.0.0"
   }
 }

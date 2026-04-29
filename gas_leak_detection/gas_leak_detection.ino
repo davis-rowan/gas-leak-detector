@@ -527,9 +527,13 @@ GasLevel classifyReading(int raw) {
 //  MOTOR STOP
 // ============================================================
 void motorStop() {
+  // Active brake: hold both IN pins HIGH, then kill ENA.
+  // Works even if ENA has a hardware jumper (IN1=IN2=HIGH brakes regardless).
+  digitalWrite(PIN_MOTOR_IN1, HIGH);
+  digitalWrite(PIN_MOTOR_IN2, HIGH);
+  digitalWrite(PIN_MOTOR_ENA, LOW);
   digitalWrite(PIN_MOTOR_IN1, LOW);
   digitalWrite(PIN_MOTOR_IN2, LOW);
-  analogWrite(PIN_MOTOR_ENA,  0);
 }
 
 // ============================================================
@@ -542,7 +546,7 @@ void startValveMove(bool shouldOpen) {
   if (motorRunning && motorTargetOpen == shouldOpen) return;
   if (!motorRunning && valveOpen == shouldOpen) return;
 
-  analogWrite(PIN_MOTOR_ENA, MOTOR_SPEED);
+  digitalWrite(PIN_MOTOR_ENA, HIGH);   // Full speed — no PWM needed for a valve
   if (shouldOpen) {
     Serial.println(F(">>> VALVE: Starting OPEN move."));
     digitalWrite(PIN_MOTOR_IN1, LOW);

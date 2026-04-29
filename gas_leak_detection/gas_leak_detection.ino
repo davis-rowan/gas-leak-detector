@@ -532,13 +532,6 @@ GasLevel classifyReading(int raw) {
 //  MOTOR STOP
 // ============================================================
 void motorStop() {
-  // Hard brake: IN1=HIGH IN2=HIGH short-circuits motor terminals.
-  // Keep ENA HIGH so the brake is active, hold for 1 second to kill momentum.
-  digitalWrite(PIN_MOTOR_IN1, HIGH);
-  digitalWrite(PIN_MOTOR_IN2, HIGH);
-  digitalWrite(PIN_MOTOR_ENA, HIGH);
-  delay(1000);
-  // Now fully cut power
   digitalWrite(PIN_MOTOR_ENA, LOW);
   digitalWrite(PIN_MOTOR_IN1, LOW);
   digitalWrite(PIN_MOTOR_IN2, LOW);
@@ -553,6 +546,9 @@ void motorStop() {
 void startValveMove(bool shouldOpen) {
   if (valveOpen == shouldOpen) return;  // already in target position
 
+  motorRunning = true;
+  motorTargetOpen = shouldOpen;
+  motorStartTime = millis();
   digitalWrite(PIN_MOTOR_ENA, HIGH);
   if (shouldOpen) {
     Serial.println(F(">>> VALVE: OPEN — anti-clockwise, 10 rev."));
@@ -564,9 +560,10 @@ void startValveMove(bool shouldOpen) {
     digitalWrite(PIN_MOTOR_IN2, LOW);
   }
 
-  delay(MOTOR_RUN_TIME);   // run for exactly 10 revolutions, then stop
+  delay(MOTOR_RUN_TIME);   // run for exactly 6 seconds, then stop
 
   motorStop();
+  motorRunning = false;
   valveOpen = shouldOpen;
   Blynk.virtualWrite(V2, valveOpen ? 255 : 0);
   Serial.println(valveOpen ? F(">>> VALVE: Now OPEN") : F(">>> VALVE: Now CLOSED"));

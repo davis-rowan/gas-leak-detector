@@ -20,6 +20,7 @@ let pendingCommand = null; // "open" | "close" | null
 app.post("/esp/data", (req, res) => {
   sensor = { ...sensor, ...req.body, lastSeen: Date.now() };
   const cmd = pendingCommand;
+  if (cmd) sensor.valve = "moving";
   pendingCommand = null;          // consume command — deliver once
   res.json({ command: cmd });     // null, "open", or "close"
 });
@@ -35,13 +36,15 @@ app.get("/api/sensor", (req, res) => {
 // POST /api/valve/open — dashboard sends open command
 app.post("/api/valve/open", (req, res) => {
   pendingCommand = "open";
-  res.json({ success: true, valve: "opening" });
+  sensor = { ...sensor, valve: "moving" };
+  res.json({ success: true, valve: "moving", command: "open" });
 });
 
 // POST /api/valve/close — dashboard sends close command
 app.post("/api/valve/close", (req, res) => {
   pendingCommand = "close";
-  res.json({ success: true, valve: "closing" });
+  sensor = { ...sensor, valve: "moving" };
+  res.json({ success: true, valve: "moving", command: "close" });
 });
 
 // GET /api/status

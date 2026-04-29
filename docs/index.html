@@ -188,13 +188,14 @@
             const res  = await fetch(`${serverUrl}/api/valve/${ep}`, { method:"POST", signal: AbortSignal.timeout(6000) });
             const data = await res.json();
             if (data.success) {
+              setValveBusy(data.valve === "moving");
               addLog(ep==="open"?"open":"shutoff", `Valve ${ep.toUpperCase()} command sent`, gasPPM);
               addAlert(`Valve ${ep.toUpperCase()} command sent`, ep==="open"?"info":"warning");
             } else {
+              setValveBusy(false);
               addAlert("Command denied: " + (data.reason||"unknown"), "danger");
             }
-          } catch { setConnected(false); addAlert("Failed to reach server", "danger"); }
-          setValveBusy(false);
+          } catch { setConnected(false); setValveBusy(false); addAlert("Failed to reach server", "danger"); }
           return;
         }
         const next = !valveOpen;

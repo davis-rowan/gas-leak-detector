@@ -199,26 +199,28 @@ export default function GasMonitorDashboard() {
     if (liveMode && espIP) {
       const endpoint = valveOpen ? "close" : "open";
       setValveMoving(true);
-      try {
-        const res = await fetch(`http://${espIP}/api/valve/${endpoint}`, {
-          method: "POST",
-          signal: AbortSignal.timeout(5000),
-        });
-        const data = await res.json();
-        if (data.success) {
-          addLog(endpoint === "open" ? "open" : "shutoff",
-            `Valve ${endpoint === "open" ? "OPEN" : "CLOSE"} command sent to ESP32`, gasPPM);
-          addAlert(`Valve ${endpoint.toUpperCase()} command sent`, endpoint === "open" ? "info" : "warning");
-        } else {
-          addAlert(`Valve command denied: ${data.reason || "unknown"}`, "danger");
+        try {
+          const res = await fetch(`http://${espIP}/api/valve/${endpoint}`, {
+            method: "POST",
+            signal: AbortSignal.timeout(5000),
+          });
+          const data = await res.json();
+          if (data.success) {
+            setValveMoving(data.valve === "moving");
+            addLog(endpoint === "open" ? "open" : "shutoff",
+              `Valve ${endpoint === "open" ? "OPEN" : "CLOSE"} command sent to ESP32`, gasPPM);
+            addAlert(`Valve ${endpoint.toUpperCase()} command sent`, endpoint === "open" ? "info" : "warning");
+          } else {
+            setValveMoving(false);
+            addAlert(`Valve command denied: ${data.reason || "unknown"}`, "danger");
+          }
+        } catch {
+          setConnected(false);
+          setValveMoving(false);
+          addAlert("Failed to reach ESP32", "danger");
         }
-      } catch {
-        setConnected(false);
-        addAlert("Failed to reach ESP32", "danger");
+        return;
       }
-      setValveMoving(false);
-      return;
-    }
 
     // Demo mode
     const next = !valveOpen;

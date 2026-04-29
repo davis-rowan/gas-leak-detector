@@ -121,6 +121,7 @@
 #define COOLDOWN_TELEGRAM      30000
 #define BUZZER_BEEP_PERIOD      300
 #define WIFI_RESET_HOLD_MS     3000
+#define SENSOR_WARMUP_MS       30000UL  // ignore gas readings for 30 s after boot
 
 // ============================================================
 //  LCD
@@ -232,13 +233,17 @@ BLYNK_WRITE(V5) {
 //  SETUP
 // ============================================================
 void setup() {
+  // ── Stop motor FIRST — GPIO5 (ENA) is pulled HIGH during ESP32 boot,
+  //    which spins the motor before setup() runs. Fix it immediately.
+  pinMode(PIN_MOTOR_IN1, OUTPUT);
+  pinMode(PIN_MOTOR_IN2, OUTPUT);
+  pinMode(PIN_MOTOR_ENA, OUTPUT);
+  motorStop();
+
   Serial.begin(115200);
   Serial.println(F("\n=== Smart Gas Detection System — Booting ==="));
 
   pinMode(PIN_GAS_DIGITAL,  INPUT);
-  pinMode(PIN_MOTOR_IN1,    OUTPUT);
-  pinMode(PIN_MOTOR_IN2,    OUTPUT);
-  pinMode(PIN_MOTOR_ENA,    OUTPUT);
   pinMode(PIN_BUZZER,       OUTPUT);
   pinMode(PIN_LED_RED,      OUTPUT);
   pinMode(PIN_LED_GREEN,    OUTPUT);
@@ -247,7 +252,6 @@ void setup() {
   digitalWrite(PIN_BUZZER,    LOW);
   digitalWrite(PIN_LED_RED,   LOW);
   digitalWrite(PIN_LED_GREEN, HIGH);
-  motorStop();
 
   analogReadResolution(12);
   analogSetAttenuation(ADC_11db);
@@ -314,7 +318,10 @@ void loop() {
     displayPPM = (raw / 4095.0f) * 1000.0f;
     GasLevel newLevel = classifyReading(raw);
 
-    if (newLevel != currentLevel) {
+    if (now < SENSOR_WARMUP_MS) {
+      // Sensor warming up — read PPM for display but ignore for alerts/valve
+      lcdMsg("  Warming up... ", "Please wait 30s ");
+    } else if (newLevel != currentLevel) {
       currentLevel = newLevel;
 
       if (currentLevel == DANGER) {

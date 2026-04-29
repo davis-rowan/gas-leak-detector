@@ -362,8 +362,10 @@ void loop() {
 
   checkResetButton();
 
-  // ── Push to cloud relay every 2 s ────────────────────────
-  if (strlen(RELAY_SERVER_URL) > 0 && now - lastRelayPost >= 2000) {
+  // ── Push to cloud relay every 2 s (skip while motor is moving) ──
+  // postToRelay() blocks for up to several seconds on HTTPS handshake.
+  // Skipping it while motorRunning ensures the motor stop check fires on time.
+  if (strlen(RELAY_SERVER_URL) > 0 && !motorRunning && now - lastRelayPost >= 2000) {
     lastRelayPost = now;
     postToRelay();
   }
@@ -672,7 +674,8 @@ void postToRelay() {
   if (!http.begin(relayClient, url)) return;
 
   http.addHeader("Content-Type", "application/json");
-  http.setTimeout(5000);   // 5 s — avoids blocking too long
+  http.setTimeout(4000);
+  relayClient.setTimeout(4);   // 4-second socket-level timeout (connect + read)
 
   char body[220];
   snprintf(body, sizeof(body),

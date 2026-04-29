@@ -306,15 +306,6 @@ void loop() {
 
   unsigned long now = millis();
 
-  // ── Non-blocking motor completion ──────────────────────────
-  if (motorRunning && now - motorStartTime >= MOTOR_RUN_TIME) {
-    motorStop();
-    motorRunning = false;
-    valveOpen = motorTargetOpen;
-    Blynk.virtualWrite(V2, valveOpen ? 255 : 0);
-    Serial.println(valveOpen ? F(">>> VALVE: Now OPEN") : F(">>> VALVE: Now CLOSED"));
-  }
-
   // ── Sensor read cycle ──────────────────────────────────────
   if (now - lastSensorRead >= INTERVAL_SENSOR_READ) {
     lastSensorRead = now;
@@ -327,6 +318,11 @@ void loop() {
       currentLevel = newLevel;
 
       if (currentLevel == DANGER) {
+        // Alarm buzzer: 5 short beeps (~2 seconds) before closing valve
+        for (int i = 0; i < 5; i++) {
+          digitalWrite(PIN_BUZZER, HIGH); delay(200);
+          digitalWrite(PIN_BUZZER, LOW);  delay(200);
+        }
         startValveMove(false);
         systemArmed = false;
         Blynk.virtualWrite(V3, 0);
@@ -340,7 +336,7 @@ void loop() {
           sendTelegramAlert(currentLevel, raw);
           lastTelegramSent = now;
         }
-      } else if (currentLevel == SAFE && !valveOpen && !motorRunning && systemArmed) {
+      } else if (currentLevel == SAFE && !valveOpen && systemArmed) {
         startValveMove(true);
       }
     }
@@ -364,10 +360,8 @@ void loop() {
 
   checkResetButton();
 
-  // ── Push to cloud relay every 2 s (skip while motor is moving) ──
-  // postToRelay() blocks for up to several seconds on HTTPS handshake.
-  // Skipping it while motorRunning ensures the motor stop check fires on time.
-  if (strlen(RELAY_SERVER_URL) > 0 && !motorRunning && now - lastRelayPost >= 2000) {
+  // ── Push to cloud relay every 2 s ────────────────────────
+  if (strlen(RELAY_SERVER_URL) > 0 && now - lastRelayPost >= 2000) {
     lastRelayPost = now;
     postToRelay();
   }
@@ -541,14 +535,13 @@ void motorStop() {
 }
 
 // ============================================================
-//  START VALVE MOVE  (non-blocking — motor finishes in loop())
+//  START VALVE MOVE  (blocking — runs motor then stops)
 //  OPEN  → anti-clockwise : IN1=LOW,  IN2=HIGH
 //  CLOSE → clockwise      : IN1=HIGH, IN2=LOW
 //  If directions are reversed, swap the OUT1/OUT2 wires on L298N.
 // ============================================================
 void startValveMove(bool shouldOpen) {
-  if (motorRunning && motorTargetOpen == shouldOpen) return;
-  if (!motorRunning && valveOpen == shouldOpen) return;
+  if (valveOpen == shouldOpen) return;  // already in target position
 
   digitalWrite(PIN_MOTOR_ENA, HIGH);
   if (shouldOpen) {
@@ -560,9 +553,13 @@ void startValveMove(bool shouldOpen) {
     digitalWrite(PIN_MOTOR_IN1, HIGH);
     digitalWrite(PIN_MOTOR_IN2, LOW);
   }
-  motorRunning    = true;
-  motorStartTime  = millis();
-  motorTargetOpen = shouldOpen;
+
+  delay(MOTOR_RUN_TIME);   // run for exactly 10 revolutions, then stop
+
+  motorStop();
+  valveOpen = shouldOpen;
+  Blynk.virtualWrite(V2, valveOpen ? 255 : 0);
+  Serial.println(valveOpen ? F(">>> VALVE: Now OPEN") : F(">>> VALVE: Now CLOSED"));
 }
 
 // ============================================================
@@ -589,11 +586,7 @@ void handleBuzzerLEDs(GasLevel level) {
     case DANGER:
       digitalWrite(PIN_LED_GREEN, LOW);
       digitalWrite(PIN_LED_RED,   HIGH);
-      if (now - lastBuzzerToggle >= BUZZER_BEEP_PERIOD) {
-        lastBuzzerToggle = now;
-        buzzerOn = !buzzerOn;
-        digitalWrite(PIN_BUZZER, buzzerOn ? HIGH : LOW);
-      }
+      digitalWrite(PIN_BUZZER,    LOW);   // buzzer already beeped at detection
       break;
   }
 }

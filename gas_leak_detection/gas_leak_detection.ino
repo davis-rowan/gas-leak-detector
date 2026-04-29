@@ -82,7 +82,7 @@
 
 // ── Cloud relay (fill in after deploying relay-server/) ──────
 // Leave empty ("") to disable relay and use local WebServer only
-#define RELAY_SERVER_URL    ""   // e.g. "https://gasguard.onrender.com"
+#define RELAY_SERVER_URL    "https://extensions-durable-open-perspectives.trycloudflare.com"
 
 // ============================================================
 //  PINS

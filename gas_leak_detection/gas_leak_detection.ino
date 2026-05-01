@@ -107,12 +107,12 @@
 #define THRESHOLD_DANGER    3276   // ≈ 800 PPM
 
 // ============================================================
-//  MOTOR  — 100 RPM motor, 10 revolutions per valve move
-//  10 rev ÷ 100 RPM × 60 000 ms = 6 000 ms
+//  MOTOR  — 100 RPM motor, 5 revolutions per valve move
+//  5 rev ÷ 100 RPM × 60 000 ms = 3 000 ms
 // ============================================================
-#define MOTOR_REVOLUTIONS   10
+#define MOTOR_REVOLUTIONS    5
 #define MOTOR_RPM           100
-#define MOTOR_RUN_TIME      ((MOTOR_REVOLUTIONS * 60000UL) / MOTOR_RPM)   // 6000 ms
+#define MOTOR_RUN_TIME      ((MOTOR_REVOLUTIONS * 60000UL) / MOTOR_RPM)   // 3000 ms
 
 // ============================================================
 //  TIMING
@@ -150,6 +150,11 @@ unsigned long lastTelegramSent = 0;
 unsigned long lastBuzzerToggle = 0;
 unsigned long lastRelayPost    = 0;
 bool          buzzerOn         = false;
+
+// Non-blocking danger beep state (5 on/off cycles = 10 transitions)
+bool          dangerBeepActive = false;
+int           dangerBeepCount  = 0;
+unsigned long dangerBeepTimer  = 0;
 
 // ============================================================
 //  OBJECTS
@@ -279,9 +284,8 @@ void setup() {
   startWiFiPortal();
   setupWebServer();
 
-  lcdMsg("Connecting to   ", "Blynk cloud...  ");
   Blynk.config(BLYNK_AUTH_TOKEN);
-  Blynk.connect(8000);
+  Blynk.connect(3000);
   telegramTLS.setInsecure();
 
   // Open valve on boot
@@ -305,10 +309,30 @@ void setup() {
 //  MAIN LOOP
 // ============================================================
 void loop() {
-  Blynk.run();
+  // ── Motor completion check — before Blynk.run() which can block ──
+  if (motorRunning && millis() - motorStartTime >= MOTOR_RUN_TIME) {
+    motorStop();
+    motorRunning = false;
+    valveOpen    = motorTargetOpen;
+    Blynk.virtualWrite(V2, valveOpen ? 255 : 0);
+    Serial.println(valveOpen ? F(">>> VALVE: Now OPEN") : F(">>> VALVE: Now CLOSED"));
+  }
+
+  if (Blynk.connected()) Blynk.run();
   httpServer.handleClient();
 
   unsigned long now = millis();
+
+  // ── Non-blocking danger beeps (5 × 200 ms on/off) ─────────
+  if (dangerBeepActive && now - dangerBeepTimer >= 200) {
+    dangerBeepTimer = now;
+    dangerBeepCount++;
+    digitalWrite(PIN_BUZZER, (dangerBeepCount % 2 == 1) ? HIGH : LOW);
+    if (dangerBeepCount >= 10) {
+      dangerBeepActive = false;
+      digitalWrite(PIN_BUZZER, LOW);
+    }
+  }
 
   // ── Sensor read cycle ──────────────────────────────────────
   if (now - lastSensorRead >= INTERVAL_SENSOR_READ) {
@@ -325,11 +349,9 @@ void loop() {
       currentLevel = newLevel;
 
       if (currentLevel == DANGER) {
-        // Alarm buzzer: 5 short beeps (~2 seconds) before closing valve
-        for (int i = 0; i < 5; i++) {
-          digitalWrite(PIN_BUZZER, HIGH); delay(200);
-          digitalWrite(PIN_BUZZER, LOW);  delay(200);
-        }
+        dangerBeepActive = true;
+        dangerBeepCount  = 0;
+        dangerBeepTimer  = now;
         startValveMove(false);
         systemArmed = false;
         Blynk.virtualWrite(V3, 0);
@@ -538,17 +560,18 @@ void motorStop() {
 }
 
 // ============================================================
-//  START VALVE MOVE  (blocking — runs motor then stops)
+//  START VALVE MOVE  (non-blocking — motor stops in loop())
 //  OPEN  → anti-clockwise : IN1=LOW,  IN2=HIGH
 //  CLOSE → clockwise      : IN1=HIGH, IN2=LOW
 //  If directions are reversed, swap the OUT1/OUT2 wires on L298N.
 // ============================================================
 void startValveMove(bool shouldOpen) {
+  if (motorRunning)            return;  // move already in progress
   if (valveOpen == shouldOpen) return;  // already in target position
 
-  motorRunning = true;
+  motorRunning    = true;
   motorTargetOpen = shouldOpen;
-  motorStartTime = millis();
+  motorStartTime  = millis();
   digitalWrite(PIN_MOTOR_ENA, HIGH);
   if (shouldOpen) {
     Serial.println(F(">>> VALVE: OPEN — anti-clockwise, 10 rev."));
@@ -559,14 +582,6 @@ void startValveMove(bool shouldOpen) {
     digitalWrite(PIN_MOTOR_IN1, HIGH);
     digitalWrite(PIN_MOTOR_IN2, LOW);
   }
-
-  delay(MOTOR_RUN_TIME);   // run for exactly 6 seconds, then stop
-
-  motorStop();
-  motorRunning = false;
-  valveOpen = shouldOpen;
-  Blynk.virtualWrite(V2, valveOpen ? 255 : 0);
-  Serial.println(valveOpen ? F(">>> VALVE: Now OPEN") : F(">>> VALVE: Now CLOSED"));
 }
 
 // ============================================================
@@ -593,7 +608,7 @@ void handleBuzzerLEDs(GasLevel level) {
     case DANGER:
       digitalWrite(PIN_LED_GREEN, LOW);
       digitalWrite(PIN_LED_RED,   HIGH);
-      digitalWrite(PIN_BUZZER,    LOW);   // buzzer already beeped at detection
+      if (!dangerBeepActive) digitalWrite(PIN_BUZZER, LOW);
       break;
   }
 }

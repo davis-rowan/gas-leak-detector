@@ -78,9 +78,11 @@
 
     // ── Main Dashboard ───────────────────────────────────────
     function GasMonitorDashboard() {
-      const [liveMode,   setLiveMode]   = useState(false);
-      const [serverUrl,  setServerUrl]  = useState(() => localStorage.getItem("gasDetectorURL") || "");
-      const [urlInput,   setUrlInput]   = useState(() => localStorage.getItem("gasDetectorURL") || "");
+      const RELAY_URL = "https://gas-leak-detector-1znc.onrender.com";
+      const savedUrl  = localStorage.getItem("gasDetectorURL") || RELAY_URL;
+      const [serverUrl,  setServerUrl]  = useState(savedUrl);
+      const [urlInput,   setUrlInput]   = useState(savedUrl);
+      const [liveMode,   setLiveMode]   = useState(true);
       const [gasPPM,     setGasPPM]     = useState(180);
       const [valveOpen,  setValveOpen]  = useState(true);
       const [valveBusy,  setValveBusy]  = useState(false);

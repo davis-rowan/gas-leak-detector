@@ -2,6 +2,9 @@ import { useState, useEffect, useRef, useCallback } from "react";
 
 const THRESHOLDS = { safe: 300, warning: 600, danger: 800, critical: 950 };
 
+const RELAY_URL = "https://gas-leak-detector-1znc.onrender.com";
+const getBaseURL = (host) => host.startsWith("http") ? host.replace(/\/$/, "") : `http://${host}`;
+
 const getGasStatus = (ppm) => {
   if (ppm < THRESHOLDS.safe) return { label: "SAFE", color: "#22c55e", bg: "rgba(34,197,94,0.1)" };
   if (ppm < THRESHOLDS.warning) return { label: "ELEVATED", color: "#eab308", bg: "rgba(234,179,8,0.1)" };
@@ -120,7 +123,7 @@ export default function GasMonitorDashboard() {
 
     intervalRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`http://${espIP}/api/sensor`, {
+        const res = await fetch(`${getBaseURL(espIP)}/api/sensor`, {
           signal: AbortSignal.timeout(2000),
         });
         const data = await res.json();
@@ -200,7 +203,7 @@ export default function GasMonitorDashboard() {
       const endpoint = valveOpen ? "close" : "open";
       setValveMoving(true);
         try {
-          const res = await fetch(`http://${espIP}/api/valve/${endpoint}`, {
+          const res = await fetch(`${getBaseURL(espIP)}/api/valve/${endpoint}`, {
             method: "POST",
             signal: AbortSignal.timeout(5000),
           });
@@ -296,12 +299,15 @@ export default function GasMonitorDashboard() {
             <button onClick={confirmIP} style={{ padding: "7px 16px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, background: "linear-gradient(135deg, #22c55e, #16a34a)", color: "#fff" }}>
               Connect Live
             </button>
+            <button onClick={() => { setIpInput(RELAY_URL); localStorage.setItem("gasDetectorIP", RELAY_URL); setEspIP(RELAY_URL); setLiveMode(true); addAlert("Connecting via relay server…", "info"); }} style={{ padding: "7px 16px", borderRadius: 8, border: "1px solid rgba(59,130,246,0.3)", cursor: "pointer", fontSize: 12, fontWeight: 700, background: "rgba(59,130,246,0.12)", color: "#60a5fa" }}>
+              🌐 Connect via Relay
+            </button>
             <button onClick={() => { setLiveMode(false); setConnected(false); }} style={{ padding: "7px 16px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", cursor: "pointer", fontSize: 12, fontWeight: 700, background: "rgba(255,255,255,0.05)", color: "#94a3b8" }}>
               Demo Mode
             </button>
             {liveMode && espIP && (
               <span style={{ fontSize: 11, color: "#475569", fontFamily: "'JetBrains Mono', monospace" }}>
-                → http://{espIP}
+                → {getBaseURL(espIP)}
               </span>
             )}
           </div>
